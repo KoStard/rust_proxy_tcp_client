@@ -66,8 +66,13 @@ fn response_to_string(content: Vec<u8>) -> String {
 
 fn send_message(message: String, socket: &mut TcpStream) {
     // Maybe we can retry in case of failures
-    socket.write(add_headers(message.as_bytes()).as_slice())
-        .expect("Failed sending a message to the proxy");
+    let mut index = 0;
+    let buf = add_headers(message.as_bytes());
+    while index < buf.len() {
+        let count = socket.write(&buf[index..])
+            .expect("Failed sending a message to the proxy");
+        index += count;
+    }
 }
 
 fn add_headers(message: &[u8]) -> Vec<u8> {
@@ -95,6 +100,7 @@ fn load_tcp_message(stream: &mut TcpStream) -> Vec<u8> {
     let (overall_length, current_body) = tcp_read_with_headers(stream);
     overall_message.extend(current_body);
     while overall_message.len() < overall_length as usize {
+        println!("One Read {} {}", overall_message.len(), overall_length);
         overall_message.extend(one_tcp_read(stream));
     }
     if overall_message.len() > overall_length as usize {
