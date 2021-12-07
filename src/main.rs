@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpStream};
 use std::ops::Add;
@@ -27,9 +28,16 @@ fn main() {
             .help("The target URL you are trying to read from with the proxy")
             .takes_value(true)
             .required(true))
+        .arg(Arg::with_name("target-file")
+            .long("target-file")
+            .short("f")
+            .help("The target file to write the proxy server response into")
+            .takes_value(true)
+            .required(true))
         .get_matches();
     let proxy_server_address_raw = app.value_of("proxy-server").expect("Proxy server not provided");
     let url = app.value_of("url").expect("Destination URL not specified");
+    let target_file_path = app.value_of("target-file").expect("Target file not specified");
 
     let proxy_server_address: SocketAddr = proxy_server_address_raw
         .parse()
@@ -42,12 +50,12 @@ fn main() {
     println!("Waiting for acceptance");
     assert_eq!(response_to_string(load_tcp_message(&mut socket)), ACCEPT_RESPONSE);
 
+    let mut file = File::create(target_file_path).expect("Couldn't create the file");
     println!("Sending the URL");
     send_message(generate_request_from_url(url), &mut socket);
     println!("Waiting for response");
     let main_response = load_tcp_message(&mut socket);
-    std::io::stdout()
-        .write(main_response.as_slice());
+    file.write_all(main_response.as_slice()).expect("Couldn't write into the file");
 
     println!("Sending bye message");
     send_message(BYE_MESSAGE.to_owned(), &mut socket);
